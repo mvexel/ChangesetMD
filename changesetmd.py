@@ -3,7 +3,7 @@
 ChangesetMD is a simple XML parser to read the weekly changeset metadata dumps
 from OpenStreetmap into a postgres database for querying.
 
-@author: Toby Murray
+@author: Martijn van Exel, Toby Murray
 """
 
 import sys
@@ -17,13 +17,7 @@ import queries
 import requests
 import yaml
 from lxml import etree
-
-try:
-    from bz2file import BZ2File
-
-    bz2Support = True
-except ImportError:
-    bz2Support = False
+import bz2
 
 BASE_REPL_URL = "https://planet.openstreetmap.org/replication/changesets/"
 
@@ -387,18 +381,8 @@ if __name__ == "__main__":
         if args.doReplication:
             changesetFile = gzip.open(args.fileName, "rb")
         else:
-            if args.fileName[-4:] == ".bz2":
-                if bz2Support:
-                    changesetFile = BZ2File(args.fileName)
-                else:
-                    print(
-                        "ERROR: bzip2 support not available. Unzip file first or install bz2file"
-                    )
-                    sys.exit(1)
-            else:
-                changesetFile = open(args.fileName, "rb")
-
-        if changesetFile != None:
+            changesetFile = bz2.open(args.fileName, "rb")
+        if not changesetFile:
             md.parseFile(conn, changesetFile, args.doReplication)
         else:
             print(
