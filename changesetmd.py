@@ -7,7 +7,6 @@ from OpenStreetmap into a postgres database for querying.
 """
 
 import sys
-import argparse
 import gzip
 from datetime import datetime
 from datetime import timedelta
@@ -18,6 +17,7 @@ import requests
 import yaml
 from lxml import etree
 import bz2
+import click
 
 BASE_REPL_URL = "https://planet.openstreetmap.org/replication/changesets/"
 
@@ -266,145 +266,220 @@ class ChangesetMD:
         return returnStatus
 
 
+@click.group()
+@click.version_option()
+def cli():
+    """ChangesetMD"""
+
+
+@cli.group()
+def db():
+    """Database commands"""
+
+
+@db.command()
+@click.option("-d", "--dbname", required=True, help="PostgreSQL database name")
+@click.option("-h", "--host", help="PostgreSQL hostname")
+@click.option("-p", "--port", help="PostgreSQL port")
+@click.option("-U", "--username", help="PostgreSQL username")
+@click.option("-W", "--password", help="PostgreSQL password")
+def init(dbname, host, port, username, password):
+    """Initialize database tables"""
+
+
+@db.command()
+@click.option("-d", "--dbname", required=True, help="PostgreSQL database name")
+@click.option("-h", "--host", help="PostgreSQL hostname")
+@click.option("-p", "--port", help="PostgreSQL port")
+@click.option("-U", "--username", help="PostgreSQL username")
+@click.option("-W", "--password", help="PostgreSQL password")
+def truncate():
+    """Truncate database tables"""
+
+
+@cli.group()
+def changesets():
+    """Changeset ingestion commands"""
+
+
+@changesets.command
+def ingest():
+    """Ingest changesets from a file downloaded from planet.osm.org"""
+
+
+@changesets.command
+def replicate():
+    """Perform replication"""
+
+
+# @click.command()
+# @click.argument(
+#     "command",
+#     type=click.Choice(["ingest", "replicate", "truncate", "create"]),
+# )
+# @click.argument(
+#     "filename",
+#     type=click.Path(exists=True),
+# )
+# @click.option("-d", "--dbname", help="PostgreSQL database name")
+# @click.option("-h", "--host", help="PostgreSQL hostname")
+# @click.option("-p", "--port", help="PostgreSQL port")
+# @click.option("-U", "--username", help="PostgreSQL username")
+# @click.option("-W", "--password", help="PostgreSQL password")
+# @click.option(
+#     "-g",
+#     "--geometry",
+#     is_flag=True,
+#     default=False,
+#     help="Create bounding box geometries (requires PostGIS extension)",
+# )
+# def changesetmd(command, filename, dbname, host, port, username, password, geometry):
+#     print(command, filename, dbname, host, port, username, password, geometry)
+
+
+# if __name__ == "__main__":
+#     changesetmd()
+# beginTime = datetime.now()
+# endTime = None
+# timeCost = None
+
+# argParser = argparse.ArgumentParser(
+#     description="Parse OSM Changeset metadata into a database"
+# )
+# argParser.add_argument(
+#     "-t",
+#     "--trunc",
+#     action="store_true",
+#     default=False,
+#     dest="truncateTables",
+#     help="Truncate existing tables (also drops indexes)",
+# )
+# argParser.add_argument(
+#     "-c",
+#     "--create",
+#     action="store_true",
+#     default=False,
+#     dest="createTables",
+#     help="Create tables",
+# )
+# argParser.add_argument(
+#     "-H", "--host", action="store", dest="dbHost", help="Database hostname"
+# )
+# argParser.add_argument(
+#     "-P",
+#     "--port",
+#     action="store",
+#     dest="dbPort",
+#     default=None,
+#     help="Database port",
+# )
+# argParser.add_argument(
+#     "-u",
+#     "--user",
+#     action="store",
+#     dest="dbUser",
+#     default=None,
+#     help="Database username",
+# )
+# argParser.add_argument(
+#     "-p",
+#     "--password",
+#     action="store",
+#     dest="dbPass",
+#     default=None,
+#     help="Database password",
+# )
+# argParser.add_argument(
+#     "-d",
+#     "--database",
+#     action="store",
+#     dest="dbName",
+#     help="Target database",
+#     required=True,
+# )
+# argParser.add_argument(
+#     "-f",
+#     "--file",
+#     action="store",
+#     dest="fileName",
+#     help="OSM changeset file to parse",
+# )
+# argParser.add_argument(
+#     "-r",
+#     "--replicate",
+#     action="store_true",
+#     dest="doReplication",
+#     default=False,
+#     help="Apply a replication file to an existing database",
+# )
+# argParser.add_argument(
+#     "-g",
+#     "--geometry",
+#     action="store_true",
+#     dest="createGeometry",
+#     default=False,
+#     help="Build geometry of changesets (requires postgis)",
+# )
+
+# args = argParser.parse_args()
+
+# conn = psycopg2.connect(
+#     database=args.dbName,
+#     user=args.dbUser,
+#     password=args.dbPass,
+#     host=args.dbHost,
+#     port=args.dbPort,
+# )
+
+# md = ChangesetMD(args.createGeometry)
+# if args.truncateTables:
+#     md.truncateTables(conn)
+
+# if args.createTables:
+#     md.createTables(conn)
+
+# psycopg2.extras.register_hstore(conn)
+
+# if args.doReplication:
+#     returnStatus = md.doReplication(conn)
+#     sys.exit(returnStatus)
+
+# if not (args.fileName is None):
+#     if args.createGeometry:
+#         print("parsing changeset file with geometries")
+#     else:
+#         print("parsing changeset file")
+#     changesetFile = None
+#     if args.doReplication:
+#         changesetFile = gzip.open(args.fileName, "rb")
+#     else:
+#         changesetFile = bz2.open(args.fileName, "rb")
+#     if not changesetFile:
+#         md.parseFile(conn, changesetFile, args.doReplication)
+#     else:
+#         print(
+#             "ERROR: no changeset file opened. Something went wrong in processing args"
+#         )
+#         sys.exist(1)
+
+#     if not args.doReplication:
+#         cursor = conn.cursor()
+#         print("creating constraints")
+#         cursor.execute(queries.createConstraints)
+#         print("creating indexes")
+#         cursor.execute(queries.createIndexes)
+#         if args.createGeometry:
+#             cursor.execute(queries.createGeomIndex)
+#         conn.commit()
+
+#     conn.close()
+
+# endTime = datetime.now()
+# timeCost = endTime - beginTime
+
+# print("Processing time cost is ", timeCost)
+
+# print("All done. Enjoy your (meta)data!")
+
 if __name__ == "__main__":
-    beginTime = datetime.now()
-    endTime = None
-    timeCost = None
-
-    argParser = argparse.ArgumentParser(
-        description="Parse OSM Changeset metadata into a database"
-    )
-    argParser.add_argument(
-        "-t",
-        "--trunc",
-        action="store_true",
-        default=False,
-        dest="truncateTables",
-        help="Truncate existing tables (also drops indexes)",
-    )
-    argParser.add_argument(
-        "-c",
-        "--create",
-        action="store_true",
-        default=False,
-        dest="createTables",
-        help="Create tables",
-    )
-    argParser.add_argument(
-        "-H", "--host", action="store", dest="dbHost", help="Database hostname"
-    )
-    argParser.add_argument(
-        "-P",
-        "--port",
-        action="store",
-        dest="dbPort",
-        default=None,
-        help="Database port",
-    )
-    argParser.add_argument(
-        "-u",
-        "--user",
-        action="store",
-        dest="dbUser",
-        default=None,
-        help="Database username",
-    )
-    argParser.add_argument(
-        "-p",
-        "--password",
-        action="store",
-        dest="dbPass",
-        default=None,
-        help="Database password",
-    )
-    argParser.add_argument(
-        "-d",
-        "--database",
-        action="store",
-        dest="dbName",
-        help="Target database",
-        required=True,
-    )
-    argParser.add_argument(
-        "-f",
-        "--file",
-        action="store",
-        dest="fileName",
-        help="OSM changeset file to parse",
-    )
-    argParser.add_argument(
-        "-r",
-        "--replicate",
-        action="store_true",
-        dest="doReplication",
-        default=False,
-        help="Apply a replication file to an existing database",
-    )
-    argParser.add_argument(
-        "-g",
-        "--geometry",
-        action="store_true",
-        dest="createGeometry",
-        default=False,
-        help="Build geometry of changesets (requires postgis)",
-    )
-
-    args = argParser.parse_args()
-
-    conn = psycopg2.connect(
-        database=args.dbName,
-        user=args.dbUser,
-        password=args.dbPass,
-        host=args.dbHost,
-        port=args.dbPort,
-    )
-
-    md = ChangesetMD(args.createGeometry)
-    if args.truncateTables:
-        md.truncateTables(conn)
-
-    if args.createTables:
-        md.createTables(conn)
-
-    psycopg2.extras.register_hstore(conn)
-
-    if args.doReplication:
-        returnStatus = md.doReplication(conn)
-        sys.exit(returnStatus)
-
-    if not (args.fileName is None):
-        if args.createGeometry:
-            print("parsing changeset file with geometries")
-        else:
-            print("parsing changeset file")
-        changesetFile = None
-        if args.doReplication:
-            changesetFile = gzip.open(args.fileName, "rb")
-        else:
-            changesetFile = bz2.open(args.fileName, "rb")
-        if not changesetFile:
-            md.parseFile(conn, changesetFile, args.doReplication)
-        else:
-            print(
-                "ERROR: no changeset file opened. Something went wrong in processing args"
-            )
-            sys.exist(1)
-
-        if not args.doReplication:
-            cursor = conn.cursor()
-            print("creating constraints")
-            cursor.execute(queries.createConstraints)
-            print("creating indexes")
-            cursor.execute(queries.createIndexes)
-            if args.createGeometry:
-                cursor.execute(queries.createGeomIndex)
-            conn.commit()
-
-        conn.close()
-
-    endTime = datetime.now()
-    timeCost = endTime - beginTime
-
-    print("Processing time cost is ", timeCost)
-
-    print("All done. Enjoy your (meta)data!")
+    cli()
